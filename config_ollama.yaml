@@ -1,34 +1,35 @@
 # Magentic-UI Configuration for Xiaohongshu Task with Ollama qwen3
 
-# 任务类型，设置为 "xiaohongshu" 以激活小红书笔记生成流程
+# Task type: set to "xiaohongshu" to activate the Xiaohongshu note generation workflow
 task_type: "xiaohongshu"
 
-# --- 基本工作流控制参数 (根据您的偏好调整) ---
-cooperative_planning: true    # true: Orchestrator 会在规划后寻求用户确认; false: 直接执行
-autonomous_execution: false   # true: 执行期间无需用户干预
-allow_follow_up_input: true # 在给出最终答案后是否允许用户继续输入
-do_bing_search: false         # 在小红书模式下，我们有预定义计划，通常不需要Orchestrator进行初始Bing搜索来制定计划
-allow_for_replans: true       # 是否允许Orchestrator在遇到问题时重新规划
-max_turns: 25                 # Agent之间最大交互轮次增加一些，以防复杂流程需要更多步骤
+# --- Basic workflow control parameters (adjust to your preference) ---
+cooperative_planning: true    # true: Orchestrator seeks user confirmation after planning; false: executes directly
+autonomous_execution: false   # true: No user intervention during execution
+allow_follow_up_input: true # Allow user input after a final answer is given
+do_bing_search: false         # For Xiaohongshu mode, pre-defined plan is used, Orchestrator usually doesn't need initial Bing search
+allow_for_replans: true       # Allow Orchestrator to re-plan if issues are encountered
+max_turns: 25                 # Increased max interaction turns for potentially complex flows
 
-# --- 模型客户端配置 ---
+# --- Model client configurations ---
 model_client_configs:
+  # Define an anchor for easy referencing of the same model config
   orchestrator: &ollama_qwen3_client
     provider: autogen_ext.models.openai.OpenAIChatCompletionClient
     config:
-      model: qwen3
-      base_url: http://localhost:11434/v1
-      api_key: ollama
-      max_retries: 10
-      request_timeout: 300      # 增加超时时间，以防Ollama或模型响应较慢
+      model: qwen3                # Your qwen3 model name in Ollama
+      base_url: http://localhost:11434/v1 # Ollama OpenAI-compatible API address
+      api_key: ollama             # For local Ollama, usually "ollama", "NA", or any non-empty string
+      max_retries: 10             # Max API call retries
+      request_timeout: 300      # Increased timeout for potentially slow Ollama/model responses (seconds)
     model_info:
-      vision: false
-      function_calling: true    # 关键！确保模型和provider支持
-      json_output: false        # Ollama上的qwen3可能不支持强制JSON模式
+      vision: false             # qwen3 is not a vision model
+      function_calling: true    # Crucial! Ensure model and provider support this
+      json_output: false        # qwen3 on Ollama might not support forced JSON mode but should generate JSON strings
       family: "ollama"
-      structured_output: false
+      structured_output: false  # Same as above
 
-  coder: *ollama_qwen3_client # XiaohongshuCoderAgent将使用此配置
+  coder: *ollama_qwen3_client # XiaohongshuCoderAgent will use this config
 
   web_surfer: *ollama_qwen3_client
 
@@ -36,18 +37,18 @@ model_client_configs:
 
   action_guard: *ollama_qwen3_client
 
-# --- 浏览器和Docker相关配置 ---
-# 如果持续遇到Playwright问题，并且小红书流程确实不需要浏览器，
-# 可以考虑将 run_without_docker 设为 true，但这会禁用 CoderAgent 和 FileSurfer 的Docker容器。
-# XiaohongshuCoderAgent 是直接在Python环境中运行的，不受此直接影响，但FileSurfer可能仍有用。
+# --- Browser and Docker related configurations ---
+# If Playwright issues persist and browser is not needed for Xiaohongshu flow,
+# consider setting run_without_docker to true. This disables Docker containers for CoderAgent and FileSurfer.
+# XiaohongshuCoderAgent runs in the Python environment directly.
 run_without_docker: false
 browser_local: false
-browser_headless: true   # 在服务器或无界面环境，设为true可能更稳定；调试时可设为false
+browser_headless: true   # On servers or headless environments, true might be more stable; set to false for debugging
 
-# --- 其他可选配置 ---
+# --- Other optional configurations ---
 # approval_policy: "auto-conservative"
 # memory_controller_key: "user_specific_key"
-# model_context_token_limit: 110000 # 根据qwen3模型的上下文窗口调整，如果qwen3支持更长上下文，可以增大
+# model_context_token_limit: 110000 # Adjust based on qwen3's context window if it supports longer contexts
 
 # playwright_port: -1
 # novnc_port: -1
