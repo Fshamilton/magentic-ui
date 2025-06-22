@@ -1,54 +1,29 @@
-# Magentic-UI Configuration for Xiaohongshu Task with Ollama qwen3
-
-# Task type: set to "xiaohongshu" to activate the Xiaohongshu note generation workflow
 task_type: "xiaohongshu"
-
-# --- Basic workflow control parameters (adjust to your preference) ---
-cooperative_planning: true    # true: Orchestrator seeks user confirmation after planning; false: executes directly
-autonomous_execution: false   # true: No user intervention during execution
-allow_follow_up_input: true # Allow user input after a final answer is given
-do_bing_search: false         # For Xiaohongshu mode, pre-defined plan is used, Orchestrator usually doesn't need initial Bing search
-allow_for_replans: true       # Allow Orchestrator to re-plan if issues are encountered
-max_turns: 25                 # Increased max interaction turns for potentially complex flows
-
-# --- Model client configurations ---
+cooperative_planning: true
+autonomous_execution: false
+allow_follow_up_input: true
+do_bing_search: false
+allow_for_replans: true
+max_turns: 25
 model_client_configs:
-  # Define an anchor for easy referencing of the same model config
   orchestrator: &ollama_qwen3_client
     provider: autogen_ext.models.openai.OpenAIChatCompletionClient
     config:
-      model: qwen3                # Your qwen3 model name in Ollama
-      base_url: http://localhost:11434/v1 # Ollama OpenAI-compatible API address
-      api_key: ollama             # For local Ollama, usually "ollama", "NA", or any non-empty string
-      max_retries: 10             # Max API call retries
-      request_timeout: 300      # Increased timeout for potentially slow Ollama/model responses (seconds)
+      model: qwen3
+      base_url: http://localhost:11434/v1
+      api_key: ollama
+      max_retries: 10
+      request_timeout: 300
     model_info:
-      vision: false             # qwen3 is not a vision model
-      function_calling: true    # Crucial! Ensure model and provider support this
-      json_output: false        # qwen3 on Ollama might not support forced JSON mode but should generate JSON strings
+      vision: false
+      function_calling: true
+      json_output: false
       family: "ollama"
-      structured_output: false  # Same as above
-
-  coder: *ollama_qwen3_client # XiaohongshuCoderAgent will use this config
-
+      structured_output: false
+  coder: *ollama_qwen3_client
   web_surfer: *ollama_qwen3_client
-
   file_surfer: *ollama_qwen3_client
-
   action_guard: *ollama_qwen3_client
-
-# --- Browser and Docker related configurations ---
-# If Playwright issues persist and browser is not needed for Xiaohongshu flow,
-# consider setting run_without_docker to true. This disables Docker containers for CoderAgent and FileSurfer.
-# XiaohongshuCoderAgent runs in the Python environment directly.
 run_without_docker: false
 browser_local: false
-browser_headless: true   # On servers or headless environments, true might be more stable; set to false for debugging
-
-# --- Other optional configurations ---
-# approval_policy: "auto-conservative"
-# memory_controller_key: "user_specific_key"
-# model_context_token_limit: 110000 # Adjust based on qwen3's context window if it supports longer contexts
-
-# playwright_port: -1
-# novnc_port: -1
+browser_headless: true
