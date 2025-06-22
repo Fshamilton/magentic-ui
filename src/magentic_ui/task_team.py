@@ -5,7 +5,7 @@ from autogen_agentchat.base import ChatAgent
 from autogen_core import ComponentModel
 from autogen_core.models import ChatCompletionClient
 
-from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer
+from .agents import USER_PROXY_DESCRIPTION, CoderAgent, FileSurfer, WebSurfer, get_xiaohongshu_coder_agent, XiaohongshuCoderAgent
 from .agents.mcp import McpAgent
 from .agents.users import DummyUserProxy, MetadataUserProxy
 from .agents.web_surfer import WebSurferConfig
@@ -246,9 +246,94 @@ async def get_task_team(
         team_participants.extend([coder_agent, file_surfer])
     team_participants.extend(mcp_agents)
 
+    if magentic_ui_config.task_type == "xiaohongshu":
+        # Instantiate XiaohongshuCoderAgent
+        raw_coder_config = magentic_ui_config.model_client_configs.coder
+        if isinstance(raw_coder_config, dict):
+            xhs_coder_llm_config_list = [raw_coder_config]
+        elif isinstance(raw_coder_config, ComponentModel):
+            xhs_coder_llm_config_list = [raw_coder_config.model_dump(exclude_none=True)]
+        elif raw_coder_config is None: # Fallback to default if not specified
+            xhs_coder_llm_config_list = [ModelClientConfigs.get_default_client_config()]
+        else: # Should not happen if config structure is as expected
+            print(f"Warning: Unexpected type for coder config: {type(raw_coder_config)}. Using default.")
+            xhs_coder_llm_config_list = [ModelClientConfigs.get_default_client_config()]
+
+        xiaohongshu_agent_name = "xiaohongshu_coder_agent_xhs" # This name MUST match agent_name in plan steps
+
+        # Ensure this agent's description is available to the orchestrator if it relies on descriptions for planning.
+        # The Orchestrator constructor takes participant_descriptions. We need to ensure this is updated.
+        # This modification is complex as participant_descriptions is built prior to this point.
+        # A simpler approach is to ensure the Orchestrator's plan is very explicit, as we are doing.
+
+        xhs_coder = get_xiaohongshu_coder_agent(
+            name_suffix="_xhs", # Results in name "XiaohongshuCoder_xhs"
+            config_list=xhs_coder_llm_config_list
+        )
+        # The name of the agent instance will be "XiaohongshuCoder_xhs"
+        # We must use this exact name in the plan's agent_name fields.
+        # Let's rename the agent instance for clarity in the participant list if needed,
+        # or ensure the plan uses "XiaohongshuCoder_xhs".
+        # For simplicity, let's assume the default name from get_xiaohongshu_coder_agent is used if name_suffix is "_xhs".
+        # The agent created by get_xiaohongshu_coder_agent(name_suffix="_xhs") is "XiaohongshuCoder_xhs".
+        # So, the xiaohongshu_agent_name variable should be "XiaohongshuCoder_xhs".
+
+        # Correct agent name based on how get_xiaohongshu_coder_agent constructs it
+        actual_xiaohongshu_agent_name_in_team = xhs_coder.name
+
+        xiaohongshu_plan_steps = [
+            {
+                "title": "热门内容抓取",
+                "details": f"指示 {actual_xiaohongshu_agent_name_in_team} 使用 MediaCrawlerTool.search_hot_notes 搜索与用户提供的主题相关的热门小红书笔记。",
+                "agent_name": actual_xiaohongshu_agent_name_in_team
+            },
+            {
+                "title": "内容分析与洞察提取",
+                "details": f"指示 {actual_xiaohongshu_agent_name_in_team} 使用 TextAnalysisTool.extract_insights_from_crawled_data 分析上一步抓取到的JSON数据。",
+                "agent_name": actual_xiaohongshu_agent_name_in_team
+            },
+            {
+                "title": "新笔记规划与简报生成 (Orchestrator 内部动作)",
+                "details": "Orchestrator 根据上一步的洞察，为新的小红书笔记制定一个计划/简报，包含建议的标题方向, 核心信息/角度, 正文需涵盖的关键点, 期望的写作语气/人设, 图片的视觉概念/元素。",
+                "agent_name": "no_action_agent"
+            },
+            {
+                "title": "内容生成（文案与图片）",
+                "details": f"指示 {actual_xiaohongshu_agent_name_in_team} 使用 ContentGenerationTool.generate_text (传入简报中的文本部分) 和 ContentGenerationTool.generate_image (传入简报中的视觉概念) 生成文案和图片。",
+                "agent_name": actual_xiaohongshu_agent_name_in_team
+            },
+            {
+                "title": "基础质量与美学检查",
+                "details": f"指示 {actual_xiaohongshu_agent_name_in_team} 使用 ContentQATool.evaluate_aesthetics (对图片URL) 和 ContentQATool.check_text_compliance (对文本) 进行检查。",
+                "agent_name": actual_xiaohongshu_agent_name_in_team
+            },
+            {
+                "title": "呈现草稿供用户审核",
+                "details": f"Orchestrator 将生成的文本、图片URL和QA结果打包，发送给 UserProxy ({user_proxy.name}) 以呈现给用户。",
+                "agent_name": user_proxy.name
+            }
+        ]
+
+        current_task_description = magentic_ui_config.task if magentic_ui_config.task else "生成小红书笔记"
+        orchestrator_config.plan = Plan(task=current_task_description, steps=xiaohongshu_plan_steps)
+
+        # Adjust team participants for Xiaohongshu mode
+        final_team_participants = [user_proxy, xhs_coder] # UserProxy and the new XHS Coder are essential
+
+        # Conditionally add other agents from the original team_participants if they are not WebSurfer or CoderAgent
+        for p_agent in team_participants:
+            if p_agent not in [user_proxy] and not isinstance(p_agent, (WebSurfer, CoderAgent, XiaohongshuCoderAgent)):
+                 # Keep FileSurfer, MCP agents etc.
+                final_team_participants.append(p_agent)
+
+        team_participants = final_team_participants
+        # Ensure Orchestrator knows about the XHS Coder's description if it dynamically generates steps beyond the initial plan.
+        # This requires modifying how participant_descriptions is passed to Orchestrator, which happens
+        # within GroupChat.__init__ or its setup. For now, relying on the explicit plan is primary.
+
     team = GroupChat(
-        participants=team_participants,
-        orchestrator_config=orchestrator_config,
+        participants=team_participants, # This now contains the correct set of agents
+        orchestrator_config=orchestrator_config, # This now contains the XHS plan if in XHS mode
         model_client=model_client_orch,
         memory_provider=memory_provider,
     )

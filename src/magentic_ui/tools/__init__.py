@@ -8,6 +8,12 @@ from .playwright import (
 from .bing_search import get_bing_search_results
 from .url_status_manager import URL_ALLOWED, URL_REJECTED, UrlStatusManager
 from .tool_metadata import load_tool, get_tool_metadata, make_approval_prompt
+from .xiaohongshu import (
+    MediaCrawlerTool,
+    TextAnalysisTool,
+    ContentGenerationTool,
+    ContentQATool,
+)
 
 __all__ = [
     "PlaywrightController",
@@ -22,4 +28,8 @@ __all__ = [
     "load_tool",
     "get_tool_metadata",
     "make_approval_prompt",
+    "MediaCrawlerTool",
+    "TextAnalysisTool",
+    "ContentGenerationTool",
+    "ContentQATool",
 ]
