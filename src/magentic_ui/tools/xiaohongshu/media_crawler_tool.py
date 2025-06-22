@@ -1,5 +1,6 @@
 import json
 from typing import Annotated
+from loguru import logger
 
 class MediaCrawlerTool:
     @staticmethod
@@ -16,11 +17,14 @@ class MediaCrawlerTool:
             {"status": "success", "data": [{"id": "...", "title": "...", "likes": 123, "summary": "...", "visual_desc": "..."}, ...]}
             or {"status": "error", "message": "Crawling failed: [reason]"}.
         """
+        logger.info(f"[MediaCrawlerTool] Called search_hot_notes with topic: '{topic}', count: {count}")
         # Placeholder implementation
         # In a real scenario, this would interact with a MediaCrawler library/script.
-        print(f"[MediaCrawlerTool] Searching for {count} hot notes on topic: {topic}")
+        # print(f"[MediaCrawlerTool] Searching for {count} hot notes on topic: {topic}") # Replaced by logger
         if topic == "error_topic":
-            return json.dumps({"status": "error", "message": "Crawling failed: Simulated error"})
+            result = json.dumps({"status": "error", "message": "Crawling failed: Simulated error"})
+            logger.warning(f"[MediaCrawlerTool] search_hot_notes returning error for topic '{topic}': {result}")
+            return result
 
         sample_data = []
         for i in range(count):
@@ -32,4 +36,7 @@ class MediaCrawlerTool:
                 "visual_desc": f"Visual description for note {i+1}: bright colors, aesthetic layout."
             })
 
-        return json.dumps({"status": "success", "data": sample_data})
+        result = json.dumps({"status": "success", "data": sample_data})
+        logger.info(f"[MediaCrawlerTool] search_hot_notes successfully processed topic '{topic}'. Returning {len(sample_data)} notes.")
+        logger.debug(f"[MediaCrawlerTool] search_hot_notes result for '{topic}': {result[:200]}...") # Log a snippet of the result
+        return result
