@@ -1,0 +1,53 @@
+# Magentic-UI Configuration for Xiaohongshu Task with Ollama qwen3
+
+# 任务类型，设置为 "xiaohongshu" 以激活小红书笔记生成流程
+task_type: "xiaohongshu"
+
+# --- 基本工作流控制参数 (根据您的偏好调整) ---
+cooperative_planning: true    # true: Orchestrator 会在规划后寻求用户确认; false: 直接执行
+autonomous_execution: false   # true: 执行期间无需用户干预
+allow_follow_up_input: true # 在给出最终答案后是否允许用户继续输入
+do_bing_search: false         # 在小红书模式下，我们有预定义计划，通常不需要Orchestrator进行初始Bing搜索来制定计划
+allow_for_replans: true       # 是否允许Orchestrator在遇到问题时重新规划
+max_turns: 25                 # Agent之间最大交互轮次增加一些，以防复杂流程需要更多步骤
+
+# --- 模型客户端配置 ---
+model_client_configs:
+  orchestrator: &ollama_qwen3_client
+    provider: autogen_ext.models.openai.OpenAIChatCompletionClient
+    config:
+      model: qwen3
+      base_url: http://localhost:11434/v1
+      api_key: ollama
+      max_retries: 10
+      request_timeout: 300      # 增加超时时间，以防Ollama或模型响应较慢
+    model_info:
+      vision: false
+      function_calling: true    # 关键！确保模型和provider支持
+      json_output: false        # Ollama上的qwen3可能不支持强制JSON模式
+      family: "ollama"
+      structured_output: false
+
+  coder: *ollama_qwen3_client # XiaohongshuCoderAgent将使用此配置
+
+  web_surfer: *ollama_qwen3_client
+
+  file_surfer: *ollama_qwen3_client
+
+  action_guard: *ollama_qwen3_client
+
+# --- 浏览器和Docker相关配置 ---
+# 如果持续遇到Playwright问题，并且小红书流程确实不需要浏览器，
+# 可以考虑将 run_without_docker 设为 true，但这会禁用 CoderAgent 和 FileSurfer 的Docker容器。
+# XiaohongshuCoderAgent 是直接在Python环境中运行的，不受此直接影响，但FileSurfer可能仍有用。
+run_without_docker: false
+browser_local: false
+browser_headless: true   # 在服务器或无界面环境，设为true可能更稳定；调试时可设为false
+
+# --- 其他可选配置 ---
+# approval_policy: "auto-conservative"
+# memory_controller_key: "user_specific_key"
+# model_context_token_limit: 110000 # 根据qwen3模型的上下文窗口调整，如果qwen3支持更长上下文，可以增大
+
+# playwright_port: -1
+# novnc_port: -1
